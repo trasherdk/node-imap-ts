@@ -1,4 +1,4 @@
-var Parser = require('../lib/Parser').Parser;
+var Parser = require('../dist/Parser').Parser;
 
 var assert = require('assert'),
     crypto = require('crypto'),

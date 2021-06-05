@@ -1,5 +1,5 @@
-var parseExpr = require('../lib/Parser').parseExpr,
-    parseEnvelopeAddresses = require('../lib/Parser').parseEnvelopeAddresses;
+var parseExpr = require('../dist/Parser').parseExpr,
+    parseEnvelopeAddresses = require('../dist/Parser').parseEnvelopeAddresses;
 
 var assert = require('assert'),
     inspect = require('util').inspect;
