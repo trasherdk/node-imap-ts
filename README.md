@@ -1,20 +1,24 @@
-# Description
+# Lovely Inbox IMAP
+
+![build status](https://github.com/LoveAndCoding/ts-imap/actions/workflows/build.yml/badge.svg)
+
+## Description
 
 ts-imap is an IMAP client module for [node.js](http://nodejs.org/). This project is based on the [node-imap](https://github.com/mscdex/node-imap) project, which has been rewritten in Typescript and modernization improvements added.
 
 This module does not perform any magic such as auto-decoding of messages/attachments or parsing of email addresses (all mail header values are left as-is).
 
-# Requirements
+## Requirements
 
 -   [node.js](http://nodejs.org/) -- v10.0.0 or newer
 
 -   An IMAP server to connect to -- tested with gmail
 
-# Installation
+## Installation
 
     npm install @lovely-inbox/imap
 
-# Examples
+## Examples
 
 -   Fetch the 'date', 'from', 'to', 'subject' message headers and the message structure of the first 3 messages in the Inbox:
 
@@ -191,7 +195,7 @@ openInbox(function (err, box) {
 });
 ```
 
-# API
+## API
 
 #### Data types
 
@@ -345,7 +349,7 @@ Additional custom flags may be provided by the server. If available, these will 
 
 require('imap') returns one object: **Connection**.
 
-## Connection Events
+### Connection Events
 
 -   **ready**() - Emitted when a connection to the server has been made and authentication was successful.
 
@@ -365,7 +369,7 @@ require('imap') returns one object: **Connection**.
 
 -   **end**() - Emitted when the connection has ended.
 
-## Connection Properties
+### Connection Properties
 
 -   **state** - _string_ - The current state of the connection (e.g. 'disconnected', 'connected', 'authenticated').
 
@@ -393,11 +397,11 @@ require('imap') returns one object: **Connection**.
     }
     ```
 
-## Connection Static Methods
+### Connection Static Methods
 
 -   **parseHeader**(< _string_ >rawHeader[, < _boolean_ >disableAutoDecode]) - _object_ - Parses a raw header and returns an object keyed on header fields and the values are Arrays of header field values. Set `disableAutoDecode` to true to disable automatic decoding of MIME encoded-words that may exist in header field values.
 
-## Connection Instance Methods
+### Connection Instance Methods
 
 **Note:** Message UID ranges are not guaranteed to be contiguous.
 
@@ -628,7 +632,7 @@ require('imap') returns one object: **Connection**.
 
 -   **serverSupports**(< _string_ >capability) - _boolean_ - Checks if the server supports the specified capability.
 
-## Extensions Supported
+### Extensions Supported
 
 -   **Gmail**
 
@@ -762,7 +766,7 @@ require('imap') returns one object: **Connection**.
 
             -   **thread**(< _string_ >algorithm, < _array_ >searchCriteria, < _function_ >callback) - _(void)_ - Performs a regular search with `searchCriteria` and groups the resulting search results using the given `algorithm` (e.g. 'references', 'orderedsubject'). `callback` has 2 parameters: < _Error_ >err, < _array_ >UIDs. `UIDs` is a nested array.
 
-## TODO
+### TODO
 
 Several things not yet implemented in no particular order:
 
