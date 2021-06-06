@@ -6,8 +6,8 @@
 		"Brian White <mscdex@mscdex.net>"
 	],
 	"description": "A TypeScript port and modernization of the node IMAP module that makes communicating with IMAP servers easy",
-	"main": "./dist/Connection.js",
-	"types": "./dist/Connection.d.ts",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"dependencies": {
 		"utf7": "git+https://github.com/LoveAndCoding/utf7.git"
 	},

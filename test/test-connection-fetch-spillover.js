@@ -3,7 +3,7 @@
 var assert = require("assert"),
 	net = require("net"),
 	crypto = require("crypto"),
-	Imap = require("../dist/Connection").default;
+	Imap = require("../dist").default;
 
 var result = [],
 	body = [],
@@ -57,16 +57,16 @@ var EXPECTED = [
 var exp = -1,
 	res = -1;
 
-var srv = net.createServer(function(sock) {
+var srv = net.createServer(function (sock) {
 	sock.write("* OK asdf\r\n");
 	var buf = "",
 		lines;
-	sock.on("data", function(data) {
+	sock.on("data", function (data) {
 		buf += data.toString("utf8");
 		if (buf.indexOf(CRLF) > -1) {
 			lines = buf.split(CRLF);
 			buf = lines.pop();
-			lines.forEach(function(l) {
+			lines.forEach(function (l) {
 				assert(
 					l === EXPECTED[++exp],
 					"Unexpected client request: " + l,
@@ -80,7 +80,7 @@ var srv = net.createServer(function(sock) {
 		}
 	});
 });
-srv.listen(0, "127.0.0.1", function() {
+srv.listen(0, "127.0.0.1", function () {
 	var port = srv.address().port;
 	var imap = new Imap({
 		user: "foo",
@@ -89,26 +89,26 @@ srv.listen(0, "127.0.0.1", function() {
 		port: port,
 		keepalive: false,
 	});
-	imap.on("ready", function() {
+	imap.on("ready", function () {
 		srv.close();
-		imap.openBox("INBOX", true, function() {
+		imap.openBox("INBOX", true, function () {
 			var f = imap.seq.fetch([1, 2], { bodies: ["TEXT"] });
 			var nbody = -1;
-			f.on("message", function(m) {
-				m.on("body", function(stream, info) {
+			f.on("message", function (m) {
+				m.on("body", function (stream, info) {
 					++nbody;
 					bodyInfo.push(info);
 					body[nbody] = "";
 					if (nbody === 0) {
 						// first allow body.push() to return false in parser.js
-						setTimeout(function() {
-							stream.on("data", function(chunk) {
+						setTimeout(function () {
+							stream.on("data", function (chunk) {
 								body[nbody] += chunk.toString("binary");
 							});
-							setTimeout(function() {
+							setTimeout(function () {
 								var oldRead = stream._read,
 									readCalled = false;
-								stream._read = function(n) {
+								stream._read = function (n) {
 									readCalled = true;
 									stream._read = oldRead;
 									imap.sock.push(
@@ -143,16 +143,16 @@ srv.listen(0, "127.0.0.1", function() {
 							}, 100);
 						}, 100);
 					} else {
-						stream.on("data", function(chunk) {
+						stream.on("data", function (chunk) {
 							body[nbody] += chunk.toString("binary");
 						});
 					}
 				});
-				m.on("attributes", function(attrs) {
+				m.on("attributes", function (attrs) {
 					result.push(attrs);
 				});
 			});
-			f.on("end", function() {
+			f.on("end", function () {
 				imap.end();
 			});
 		});
@@ -160,7 +160,7 @@ srv.listen(0, "127.0.0.1", function() {
 	imap.connect();
 });
 
-process.once("exit", function() {
+process.once("exit", function () {
 	assert.deepEqual(result, [
 		{
 			uid: 1000,

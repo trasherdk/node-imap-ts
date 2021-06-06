@@ -1,6 +1,6 @@
 var assert = require("assert"),
 	net = require("net"),
-	Imap = require("../dist/Connection").default,
+	Imap = require("../dist").default,
 	result;
 
 var CRLF = "\r\n";
@@ -38,22 +38,22 @@ var RESPONSES = [
 	["* BYE LOGOUT Requested", "A6 OK good day (Success)", ""].join(CRLF),
 ];
 
-var srv = net.createServer(function(sock) {
+var srv = net.createServer(function (sock) {
 	sock.write("* OK asdf\r\n");
 	var buf = "",
 		lines;
-	sock.on("data", function(data) {
+	sock.on("data", function (data) {
 		buf += data.toString("utf8");
 		if (buf.indexOf(CRLF) > -1) {
 			lines = buf.split(CRLF);
 			buf = lines.pop();
-			lines.forEach(function() {
+			lines.forEach(function () {
 				sock.write(RESPONSES.shift());
 			});
 		}
 	});
 });
-srv.listen(0, "127.0.0.1", function() {
+srv.listen(0, "127.0.0.1", function () {
 	var port = srv.address().port;
 	var imap = new Imap({
 		user: "foo",
@@ -62,15 +62,15 @@ srv.listen(0, "127.0.0.1", function() {
 		port: port,
 		keepalive: false,
 	});
-	imap.on("ready", function() {
-		imap.openBox("INBOX", true, function() {
+	imap.on("ready", function () {
+		imap.openBox("INBOX", true, function () {
 			var f = imap.seq.fetch(1);
-			f.on("message", function(m) {
-				m.once("attributes", function(attrs) {
+			f.on("message", function (m) {
+				m.once("attributes", function (attrs) {
 					result = attrs;
 				});
 			});
-			f.on("end", function() {
+			f.on("end", function () {
 				srv.close();
 				imap.end();
 			});
@@ -79,7 +79,7 @@ srv.listen(0, "127.0.0.1", function() {
 	imap.connect();
 });
 
-process.once("exit", function() {
+process.once("exit", function () {
 	assert.deepEqual(result, {
 		uid: 1,
 		date: new Date("05-Sep-2004 00:38:03 +0000"),

@@ -1,6 +1,6 @@
 var assert = require("assert"),
 	net = require("net"),
-	Imap = require("../dist/Connection").default;
+	Imap = require("../dist").default;
 
 var result,
 	body = "",
@@ -63,16 +63,16 @@ var exp = -1,
 	res = -1,
 	sentCont = false;
 
-var srv = net.createServer(function(sock) {
+var srv = net.createServer(function (sock) {
 	sock.write("* OK asdf\r\n");
 	var buf = "",
 		lines;
-	sock.on("data", function(data) {
+	sock.on("data", function (data) {
 		buf += data.toString("utf8");
 		if (buf.indexOf(CRLF) > -1) {
 			lines = buf.split(CRLF);
 			buf = lines.pop();
-			lines.forEach(function(l) {
+			lines.forEach(function (l) {
 				assert(
 					l === EXPECTED[++exp],
 					"Unexpected client request: " + l,
@@ -81,7 +81,7 @@ var srv = net.createServer(function(sock) {
 					assert(sentCont, "DONE seen before continuation sent");
 					sock.write("IDLE ok\r\n");
 				} else if (l === "IDLE IDLE") {
-					setTimeout(function() {
+					setTimeout(function () {
 						sentCont = true;
 						sock.write("+ idling\r\n");
 					}, 100);
@@ -96,7 +96,7 @@ var srv = net.createServer(function(sock) {
 		}
 	});
 });
-srv.listen(0, "127.0.0.1", function() {
+srv.listen(0, "127.0.0.1", function () {
 	var port = srv.address().port;
 	var imap = new Imap({
 		user: "foo",
@@ -105,23 +105,23 @@ srv.listen(0, "127.0.0.1", function() {
 		port: port,
 		keepalive: true,
 	});
-	imap.on("ready", function() {
+	imap.on("ready", function () {
 		srv.close();
-		imap.openBox("INBOX", true, function() {
+		imap.openBox("INBOX", true, function () {
 			var f = imap.seq.fetch(1, { bodies: ["TEXT"] });
-			f.on("message", function(m) {
-				m.on("body", function(stream, info) {
+			f.on("message", function (m) {
+				m.on("body", function (stream, info) {
 					bodyInfo = info;
-					stream.on("data", function(chunk) {
+					stream.on("data", function (chunk) {
 						body += chunk.toString("utf8");
 					});
 				});
-				m.on("attributes", function(attrs) {
+				m.on("attributes", function (attrs) {
 					result = attrs;
 				});
 			});
-			f.on("end", function() {
-				imap.status("test", function(err, status) {
+			f.on("end", function () {
+				imap.status("test", function (err, status) {
 					imap.end();
 				});
 			});
@@ -130,7 +130,7 @@ srv.listen(0, "127.0.0.1", function() {
 	imap.connect();
 });
 
-process.once("exit", function() {
+process.once("exit", function () {
 	assert.deepEqual(result, {
 		uid: 1,
 		date: new Date("05-Sep-2004 00:38:03 +0000"),
