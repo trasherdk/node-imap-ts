@@ -1,4 +1,4 @@
-var parseHeader = require('../dist/Parser').parseHeader;
+var parseHeader = require('../dist/parser').parseHeader;
 
 var assert = require('assert'),
     inspect = require('util').inspect;

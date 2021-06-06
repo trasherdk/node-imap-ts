@@ -1,4 +1,4 @@
-var Parser = require('../dist/Parser').default;
+var Parser = require('../dist/parser').default;
 
 var assert = require('assert'),
     crypto = require('crypto'),

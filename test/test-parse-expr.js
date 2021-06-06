@@ -1,4 +1,4 @@
-var parseExpr = require('../dist/Parser').parseExpr;
+var parseExpr = require('../dist/parser').parseExpr;
 
 var assert = require('assert'),
     inspect = require('util').inspect;

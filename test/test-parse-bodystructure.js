@@ -1,4 +1,4 @@
-var parseBodyStructure = require("../dist/Parser").parseBodyStructure;
+var parseBodyStructure = require("../dist/parser").parseBodyStructure;
 
 var assert = require("assert"),
 	inspect = require("util").inspect;
