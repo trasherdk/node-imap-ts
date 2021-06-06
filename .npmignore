@@ -1,0 +1,7 @@
+.eslint*
+.git*
+.prettier*
+tsconfig.json
+node_modules/*
+src/*
+test/*
