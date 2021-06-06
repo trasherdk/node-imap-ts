@@ -5,7 +5,7 @@ import { IState } from "../types";
 export function parseHeader(str: string, noDecode: boolean = false) {
 	const lines = str.split(RE_CRLF);
 	let len = lines.length;
-	const header: { [string]: string[] } = {};
+	const header: Record<string, string[]> = {};
 	const state: IState = {
 		buffer: undefined,
 		consecutive: false,

@@ -24,6 +24,7 @@ import {
 	parseQuotaRoot,
 	parseStatus,
 	parseTextCode,
+	TextCode,
 } from "./sections";
 import ParserStream from "./stream";
 
@@ -127,9 +128,11 @@ export default class Parser extends EventEmitter {
 				}
 			} else {
 				if (datalen > this.literallen) {
-					this.literals.push(data.slice(0, this.literallen));
+					this.literals.push(
+						data.slice(0, this.literallen).toString(),
+					);
 				} else {
-					this.literals.push(data);
+					this.literals.push(data.toString());
 				}
 				i = this.literallen;
 				this.literallen = 0;
@@ -232,7 +235,7 @@ export default class Parser extends EventEmitter {
 
 			let type: string;
 			let num: number;
-			let textCode: string;
+			let textCode: TextCode;
 			let val: any;
 			if (m[2] !== undefined) {
 				num = parseInt(m[2], 10);
@@ -314,7 +317,7 @@ export default class Parser extends EventEmitter {
 
 	private resContinue() {
 		const m: RegExpExecArray = RE_CONTINUE.exec(this.buffer);
-		let textCode: string;
+		let textCode: TextCode;
 		let text: string;
 
 		this.buffer = "";

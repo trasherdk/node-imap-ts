@@ -2,8 +2,8 @@ import { LITPLACEHOLDER } from "../constants";
 import { utf7 } from "../encoding";
 import { RE_INTEGER } from "../matchers";
 
-type ExpressionEntry = number | string | string[];
-type ParsedExpression = ExpressionEntry[];
+export type ExpressionEntry = number | string | string[];
+export type ParsedExpression = ExpressionEntry[];
 
 export function parseExpr(
 	input: string,
@@ -110,7 +110,7 @@ export function parseId(text, literals): Record<string, string> {
 	return id;
 }
 
-type TextCode =
+export type TextCode =
 	| string
 	| {
 			key: number | string;

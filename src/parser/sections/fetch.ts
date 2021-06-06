@@ -11,36 +11,40 @@ export function parseFetch(text, literals, seqno) {
 	const attrs = {};
 	let m;
 	let body;
-	// list is [KEY1, VAL1, KEY2, VAL2, .... KEYn, VALn]
-	for (let i = 0, len = list.length, key, val; i < len; i += 2) {
-		key = list[i].toLowerCase();
-		val = list[i + 1];
-		if (key === "envelope") {
-			val = parseFetchEnvelope(val);
-		} else if (key === "internaldate") {
-			val = new Date(val);
-		} else if (key === "modseq") {
-			// always a list of one value
-			val = "" + val[0];
-		} else if (key === "body" || key === "bodystructure") {
-			val = parseBodyStructure(val);
-		} else if ((m = RE_BODYINLINEKEY.exec(list[i]))) {
-			// a body was sent as a non-literal
-			val = Buffer.from("" + val);
-			body = new ReadableStream();
-			body._readableState.sync = false;
-			body._read = EMPTY_READCB;
-			this.emit("body", body, {
-				seqno,
-				size: val.length,
-				which: m[1],
-			});
-			body.push(val);
-			body.push(null);
-			continue;
+
+	if (Array.isArray(list)) {
+		// list is [KEY1, VAL1, KEY2, VAL2, .... KEYn, VALn]
+		for (let i = 0, len = list.length, key, val; i < len; i += 2) {
+			key = list[i].toLowerCase();
+			val = list[i + 1];
+			if (key === "envelope") {
+				val = parseFetchEnvelope(val);
+			} else if (key === "internaldate") {
+				val = new Date(val);
+			} else if (key === "modseq") {
+				// always a list of one value
+				val = "" + val[0];
+			} else if (key === "body" || key === "bodystructure") {
+				val = parseBodyStructure(val);
+			} else if ((m = RE_BODYINLINEKEY.exec(list[i]))) {
+				// a body was sent as a non-literal
+				val = Buffer.from("" + val);
+				body = new ReadableStream();
+				body._readableState.sync = false;
+				body._read = EMPTY_READCB;
+				this.emit("body", body, {
+					seqno,
+					size: val.length,
+					which: m[1],
+				});
+				body.push(val);
+				body.push(null);
+				continue;
+			}
+			attrs[key] = val;
 		}
-		attrs[key] = val;
 	}
+
 	return attrs;
 }
 

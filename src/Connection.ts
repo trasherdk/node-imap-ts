@@ -1,13 +1,15 @@
 import { Buffer } from "buffer";
 import { EventEmitter } from "events";
 import { Socket } from "net";
+import { clearTimeout, setTimeout } from "timers";
 import * as tls from "tls";
 import { imap as utf7 } from "utf7";
 import { inspect, isDate } from "util";
 
+import { IMAPError } from "./errors";
 import Parser, { parseExpr, parseHeader } from "./parser";
 
-const MAX_INT = 9007199254740992;
+const MAX_INT = Number.MAX_SAFE_INTEGER;
 const KEEPALIVE_INTERVAL = 10000;
 const MAX_IDLE_WAIT = 300000; // 5 minute
 const MONTHS = [
@@ -54,19 +56,16 @@ const RE_DBLQUOTE = /"/g;
 const RE_ESCAPE = /\\\\/g;
 const RE_INTEGER = /^\d+$/;
 
-class IMAPError extends Error {
-	public source: string;
-}
-
 export interface IConfig {
 	authTimeout?: number;
 	autotls?: "never" | "always" | "required";
 	connTimeout?: number;
+	debug?: (msg: string) => void;
 	host: string;
 	keepalive:
 		| boolean
 		| { interval?: number; idleInterval?: number; forceNoop?: boolean };
-	localAddres: string;
+	localAddress: string;
 	password: string;
 	port: number;
 	socket?: Socket;
@@ -78,16 +77,18 @@ export interface IConfig {
 	xoauth2: string;
 }
 
-interface ICommand<T> {
+interface ICommand {
+	appendData?: any;
 	bodyEmitter?: EventEmitter;
-	cb: (...T) => void;
-	cbArgs: T[];
+	cb: Function;
+	cbargs: any[];
 	data?: any;
-	fetchCache: any;
-	fetching: string[];
-	fullcmd: string;
+	fetchCache?: any;
+	fetching?: string[];
+	fullcmd?: string;
 	lines?: string[];
 	literalAppendData?: any;
+	oauthError?: string;
 	type: string;
 }
 
@@ -224,23 +225,23 @@ export default class Connection extends EventEmitter {
 	public state: "disconnected" | "connected" | "authenticated";
 
 	private debug: (msg: string) => void;
-	private box: void | IBox;
-	private caps: void | string[];
+	private box: undefined | IBox;
+	private caps: undefined | string[];
 	private config: IConfig;
-	private curReq: void | ICommand;
-	private idle: { started: void | number; enabled: boolean };
-	private parser: void | Parser;
+	private curReq: undefined | ICommand;
+	private idle: { started: undefined | number; enabled: boolean };
+	private parser: undefined | Parser;
 	private queue: ICommand[];
-	private sock: void | Socket;
+	private sock: undefined | Socket;
 	private tagcount: number;
-	private tmrAuth: void | Timeout;
-	private tmrConn: void | Timeout;
-	private tmrKeepalive: void | Timeout;
+	private tmrAuth: undefined | NodeJS.Timeout;
+	private tmrConn: undefined | NodeJS.Timeout;
+	private tmrKeepalive: undefined | NodeJS.Timeout;
 
 	private onError: (err: Error) => void;
 	private onSocketTimeout: () => void;
 
-	constructor(config: IConfig) {
+	constructor(config: Partial<IConfig>) {
 		super();
 		config = config || {};
 
@@ -314,11 +315,13 @@ export default class Connection extends EventEmitter {
 		}
 
 		const onconnect = () => {
-			clearTimeout(this.tmrConn);
+			if (typeof this.tmrConn !== "undefined") {
+				clearTimeout(this.tmrConn);
+			}
 			this.state = "connected";
 			this.debug("[connection] Connected to host");
-			this.tmrAuth = setTimeout(function() {
-				const err = new Error(
+			this.tmrAuth = setTimeout(function () {
+				const err = new IMAPError(
 					"Timed out while authenticating with server",
 				);
 				err.source = "timeout-auth";
@@ -335,22 +338,36 @@ export default class Connection extends EventEmitter {
 		}
 
 		this.onError = (err) => {
-			clearTimeout(this.tmrConn);
-			clearTimeout(this.tmrAuth);
-			this.debug("[connection] Error: " + err);
-			err.source = "socket";
-			this.emit("error", err);
+			const wrpd = new IMAPError(err);
+
+			if (typeof this.tmrConn !== "undefined") {
+				clearTimeout(this.tmrConn);
+			}
+			if (typeof this.tmrAuth !== "undefined") {
+				clearTimeout(this.tmrAuth);
+			}
+			this.debug("[connection] Error: " + wrpd);
+			wrpd.source = "socket";
+			this.emit("error", wrpd);
 		};
 		this.sock.on("error", this.onError);
 
 		this.onSocketTimeout = () => {
-			clearTimeout(this.tmrConn);
-			clearTimeout(this.tmrAuth);
-			clearTimeout(this.tmrKeepalive);
+			if (typeof this.tmrConn !== "undefined") {
+				clearTimeout(this.tmrConn);
+			}
+			if (typeof this.tmrAuth !== "undefined") {
+				clearTimeout(this.tmrAuth);
+			}
+			if (typeof this.tmrKeepalive !== "undefined") {
+				clearTimeout(this.tmrKeepalive);
+			}
 			this.state = "disconnected";
 			this.debug("[connection] Socket timeout");
 
-			const err = new Error("Socket timed out while talking to server");
+			const err = new IMAPError(
+				"Socket timed out while talking to server",
+			);
 			err.source = "socket-timeout";
 			this.emit("error", err);
 			socket.destroy();
@@ -359,18 +376,30 @@ export default class Connection extends EventEmitter {
 		socket.setTimeout(config.socketTimeout);
 
 		socket.once("close", (hadErr) => {
-			clearTimeout(this.tmrConn);
-			clearTimeout(this.tmrAuth);
-			clearTimeout(this.tmrKeepalive);
+			if (typeof this.tmrConn !== "undefined") {
+				clearTimeout(this.tmrConn);
+			}
+			if (typeof this.tmrAuth !== "undefined") {
+				clearTimeout(this.tmrAuth);
+			}
+			if (typeof this.tmrKeepalive !== "undefined") {
+				clearTimeout(this.tmrKeepalive);
+			}
 			this.state = "disconnected";
 			this.debug("[connection] Closed");
 			this.emit("close", hadErr);
 		});
 
 		socket.once("end", () => {
-			clearTimeout(this.tmrConn);
-			clearTimeout(this.tmrAuth);
-			clearTimeout(this.tmrKeepalive);
+			if (typeof this.tmrConn !== "undefined") {
+				clearTimeout(this.tmrConn);
+			}
+			if (typeof this.tmrAuth !== "undefined") {
+				clearTimeout(this.tmrAuth);
+			}
+			if (typeof this.tmrKeepalive !== "undefined") {
+				clearTimeout(this.tmrKeepalive);
+			}
 			this.state = "disconnected";
 			this.debug("[connection] Ended");
 			this.emit("end");
@@ -385,6 +414,12 @@ export default class Connection extends EventEmitter {
 			this.resTagged(info);
 		});
 		parser.on("body", (stream, info) => {
+			if (!this.curReq) {
+				throw new IMAPError(
+					"Unable to find current request during parsing",
+				);
+			}
+
 			let msg = this.curReq.fetchCache[info.seqno];
 			let toget;
 
@@ -420,6 +455,16 @@ export default class Connection extends EventEmitter {
 			stream.resume(); // a body we didn't ask for?
 		});
 		parser.on("continue", (info) => {
+			if (!this.curReq) {
+				throw new IMAPError(
+					"Unable to find current request during parsing",
+				);
+			} else if (!this.sock) {
+				throw new IMAPError(
+					"No socket available when parsing continue",
+				);
+			}
+
 			const type = this.curReq.type;
 			if (type === "IDLE") {
 				if (
@@ -458,7 +503,9 @@ export default class Connection extends EventEmitter {
 				// no longer idling
 				this.idle.enabled = false;
 				this.idle.started = undefined;
-				clearTimeout(this.tmrKeepalive);
+				if (typeof this.tmrKeepalive !== "undefined") {
+					clearTimeout(this.tmrKeepalive);
+				}
 
 				this.curReq = undefined;
 
@@ -481,7 +528,7 @@ export default class Connection extends EventEmitter {
 		});
 
 		this.tmrConn = setTimeout(() => {
-			const err = new Error("Timed out while connecting to server");
+			const err = new IMAPError("Timed out while connecting to server");
 			err.source = "timeout";
 			this.emit("error", err);
 			socket.destroy();
@@ -510,7 +557,7 @@ export default class Connection extends EventEmitter {
 		this.enqueue("LOGOUT", () => {
 			this.queue = [];
 			this.curReq = undefined;
-			this.sock.end();
+			this.sock?.end();
 		});
 	}
 
@@ -523,7 +570,9 @@ export default class Connection extends EventEmitter {
 		options = options || {};
 		if (!options.mailbox) {
 			if (!this.box) {
-				throw new Error("No mailbox specified or currently selected");
+				throw new IMAPError(
+					"No mailbox specified or currently selected",
+				);
 			} else {
 				options.mailbox = this.box.name;
 			}
@@ -547,7 +596,7 @@ export default class Connection extends EventEmitter {
 		}
 		if (options.date) {
 			if (!isDate(options.date)) {
-				throw new Error("`date` is not a Date object");
+				throw new IMAPError("`date` is not a Date object");
 			}
 			cmd += ' "';
 			cmd += options.date.getDate();
@@ -596,7 +645,7 @@ export default class Connection extends EventEmitter {
 
 	public id(identification, cb) {
 		if (!this.serverSupports("ID")) {
-			throw new Error("Server does not support ID");
+			throw new IMAPError("Server does not support ID");
 		}
 		let cmd = "ID";
 		if (
@@ -606,15 +655,15 @@ export default class Connection extends EventEmitter {
 			cmd += " NIL";
 		} else {
 			if (Object.keys(identification).length > 30) {
-				throw new Error("Max allowed number of keys is 30");
+				throw new IMAPError("Max allowed number of keys is 30");
 			}
 			const kv = [];
 			Object.keys(identification).forEach((k) => {
 				if (Buffer.byteLength(k) > 30) {
-					throw new Error("Max allowed key length is 30");
+					throw new IMAPError("Max allowed key length is 30");
 				}
 				if (Buffer.byteLength(identification[k]) > 1024) {
-					throw new Error("Max allowed value length is 1024");
+					throw new IMAPError("Max allowed value length is 1024");
 				}
 				kv.push('"' + escape(k) + '"');
 				kv.push('"' + escape(identification[k]) + '"');
@@ -626,7 +675,7 @@ export default class Connection extends EventEmitter {
 
 	public openBox(name, readOnly, cb) {
 		if (this.state !== "authenticated") {
-			throw new Error("Not authenticated");
+			throw new IMAPError("Not authenticated");
 		}
 
 		if (typeof readOnly === "function") {
@@ -648,6 +697,8 @@ export default class Connection extends EventEmitter {
 			if (err) {
 				this.box = undefined;
 				cb(err);
+			} else if (!this.box) {
+				cb(new IMAPError("Did not successfully open box"));
 			} else {
 				this.box.name = name;
 				cb(err, this.box);
@@ -657,7 +708,7 @@ export default class Connection extends EventEmitter {
 
 	public closeBox(shouldExpunge, cb) {
 		if (this.box === undefined) {
-			throw new Error("No mailbox is currently selected");
+			throw new IMAPError("No mailbox is currently selected");
 		}
 
 		if (typeof shouldExpunge === "function") {
@@ -753,7 +804,9 @@ export default class Connection extends EventEmitter {
 
 	public status(boxName, cb) {
 		if (this.box && this.box.name === boxName) {
-			throw new Error("Cannot call status on currently selected mailbox");
+			throw new IMAPError(
+				"Cannot call status on currently selected mailbox",
+			);
 		}
 
 		boxName = escape(utf7.encode("" + boxName));
@@ -764,36 +817,43 @@ export default class Connection extends EventEmitter {
 			info.push("HIGHESTMODSEQ");
 		}
 
-		info = info.join(" ");
+		const attrs = info.join(" ");
 
-		this.enqueue('STATUS "' + boxName + '" (' + info + ")", cb);
+		this.enqueue('STATUS "' + boxName + '" (' + attrs + ")", cb);
 	}
 
-	public expunge(uids, cb) {
-		if (typeof uids === "function") {
-			cb = uids;
+	public expunge(cb: Function);
+	public expunge(uids: string | number | (string | number)[], cb: Function);
+	public expunge(
+		uidsOrCb: string | number | (string | number)[] | Function,
+		cb?: Function,
+	) {
+		let uids: (string | number)[];
+		if (typeof uidsOrCb === "function") {
+			cb = uidsOrCb;
 			uids = undefined;
+		} else if (!Array.isArray(uidsOrCb)) {
+			uids = [uidsOrCb];
+		} else {
+			uids = uidsOrCb;
 		}
 
 		if (uids !== undefined) {
-			if (!Array.isArray(uids)) {
-				uids = [uids];
-			}
 			validateUIDList(uids);
 
 			if (uids.length === 0) {
-				throw new Error("Empty uid list");
+				throw new IMAPError("Empty uid list");
 			}
 
-			uids = uids.join(",");
+			const uidsList = uids.join(",");
 
 			if (!this.serverSupports("UIDPLUS")) {
-				throw new Error(
+				throw new IMAPError(
 					"Server does not support this feature (UIDPLUS)",
 				);
 			}
 
-			this.enqueue("UID EXPUNGE " + uids, cb);
+			this.enqueue("UID EXPUNGE " + uidsList, cb);
 		} else {
 			this.enqueue("EXPUNGE", cb);
 		}
@@ -949,9 +1009,9 @@ export default class Connection extends EventEmitter {
 
 	private _search(which, criteria, cb) {
 		if (this.box === undefined) {
-			throw new Error("No mailbox is currently selected");
+			throw new IMAPError("No mailbox is currently selected");
 		} else if (!Array.isArray(criteria)) {
-			throw new Error("Expected array for search criteria");
+			throw new IMAPError("Expected array for search criteria");
 		}
 
 		let cmd = which + "SEARCH";
@@ -976,9 +1036,9 @@ export default class Connection extends EventEmitter {
 		const isFlags = cfg.flags !== undefined;
 		let items = isFlags ? cfg.flags : cfg.keywords;
 		if (this.box === undefined) {
-			throw new Error("No mailbox is currently selected");
+			throw new IMAPError("No mailbox is currently selected");
 		} else if (uids === undefined) {
-			throw new Error("No messages specified");
+			throw new IMAPError("No messages specified");
 		}
 
 		if (!Array.isArray(uids)) {
@@ -987,7 +1047,7 @@ export default class Connection extends EventEmitter {
 		validateUIDList(uids);
 
 		if (uids.length === 0) {
-			throw new Error(
+			throw new IMAPError(
 				"Empty " + (which === "" ? "sequence number" : "uid") + "list",
 			);
 		}
@@ -996,7 +1056,7 @@ export default class Connection extends EventEmitter {
 			(!Array.isArray(items) && typeof items !== "string") ||
 			(Array.isArray(items) && items.length === 0)
 		) {
-			throw new Error(
+			throw new IMAPError(
 				(isFlags ? "Flags" : "Keywords") +
 					" argument must be a string or a non-empty Array",
 			);
@@ -1013,7 +1073,7 @@ export default class Connection extends EventEmitter {
 				// keyword contains any char except control characters (%x00-1F and %x7F)
 				// and: '(', ')', '{', ' ', '%', '*', '\', '"', ']'
 				if (RE_INVALID_KW_CHARS.test(items[i])) {
-					throw new Error(
+					throw new IMAPError(
 						'The keyword "' +
 							items[i] +
 							'" contains invalid characters',
@@ -1026,7 +1086,7 @@ export default class Connection extends EventEmitter {
 		uids = uids.join(",");
 
 		let modifiers = "";
-		if (cfg.modseq !== undefined && !this.box.nomodseq) {
+		if (cfg.modseq !== undefined && !this.box?.nomodseq) {
 			modifiers += "UNCHANGEDSINCE " + cfg.modseq + " ";
 		}
 
@@ -1046,7 +1106,7 @@ export default class Connection extends EventEmitter {
 
 	private _copy(which, uids, boxTo, cb) {
 		if (this.box === undefined) {
-			throw new Error("No mailbox is currently selected");
+			throw new IMAPError("No mailbox is currently selected");
 		}
 
 		if (!Array.isArray(uids)) {
@@ -1055,7 +1115,7 @@ export default class Connection extends EventEmitter {
 		validateUIDList(uids);
 
 		if (uids.length === 0) {
-			throw new Error(
+			throw new IMAPError(
 				"Empty " + (which === "" ? "sequence number" : "uid") + "list",
 			);
 		}
@@ -1067,7 +1127,7 @@ export default class Connection extends EventEmitter {
 
 	private _move(which, uids, boxTo, cb) {
 		if (this.box === undefined) {
-			throw new Error("No mailbox is currently selected");
+			throw new IMAPError("No mailbox is currently selected");
 		}
 
 		if (this.serverSupports("MOVE")) {
@@ -1077,7 +1137,7 @@ export default class Connection extends EventEmitter {
 			validateUIDList(uids);
 
 			if (uids.length === 0) {
-				throw new Error(
+				throw new IMAPError(
 					"Empty " +
 						(which === "" ? "sequence number" : "uid") +
 						"list",
@@ -1092,7 +1152,7 @@ export default class Connection extends EventEmitter {
 			this.box.permFlags.indexOf("\\Deleted") === -1 &&
 			this.box.flags.indexOf("\\Deleted") === -1
 		) {
-			throw new Error(
+			throw new IMAPError(
 				"Cannot move message: " +
 					"server does not allow deletion of messages",
 			);
@@ -1169,7 +1229,7 @@ export default class Connection extends EventEmitter {
 			uids === null ||
 			(Array.isArray(uids) && uids.length === 0)
 		) {
-			throw new Error("Nothing to fetch");
+			throw new IMAPError("Nothing to fetch");
 		}
 
 		if (!Array.isArray(uids)) {
@@ -1178,7 +1238,7 @@ export default class Connection extends EventEmitter {
 		validateUIDList(uids);
 
 		if (uids.length === 0) {
-			throw new Error(
+			throw new IMAPError(
 				"Empty " + (which === "" ? "sequence number" : "uid") + "list",
 			);
 		}
@@ -1267,11 +1327,11 @@ export default class Connection extends EventEmitter {
 
 	private storeLabels(which, uids, labels, mode, cb) {
 		if (!this.serverSupports("X-GM-EXT-1")) {
-			throw new Error("Server must support X-GM-EXT-1 capability");
+			throw new IMAPError("Server must support X-GM-EXT-1 capability");
 		} else if (this.box === undefined) {
-			throw new Error("No mailbox is currently selected");
+			throw new IMAPError("No mailbox is currently selected");
 		} else if (uids === undefined) {
-			throw new Error("No messages specified");
+			throw new IMAPError("No messages specified");
 		}
 
 		if (!Array.isArray(uids)) {
@@ -1280,7 +1340,7 @@ export default class Connection extends EventEmitter {
 		validateUIDList(uids);
 
 		if (uids.length === 0) {
-			throw new Error(
+			throw new IMAPError(
 				"Empty " + (which === "" ? "sequence number" : "uid") + "list",
 			);
 		}
@@ -1289,7 +1349,7 @@ export default class Connection extends EventEmitter {
 			(!Array.isArray(labels) && typeof labels !== "string") ||
 			(Array.isArray(labels) && labels.length === 0)
 		) {
-			throw new Error(
+			throw new IMAPError(
 				"labels argument must be a string or a non-empty Array",
 			);
 		}
@@ -1320,18 +1380,20 @@ export default class Connection extends EventEmitter {
 
 	private _sort(which, sorts, criteria, cb) {
 		if (this.box === undefined) {
-			throw new Error("No mailbox is currently selected");
+			throw new IMAPError("No mailbox is currently selected");
 		} else if (!Array.isArray(sorts) || !sorts.length) {
-			throw new Error("Expected array with at least one sort criteria");
+			throw new IMAPError(
+				"Expected array with at least one sort criteria",
+			);
 		} else if (!Array.isArray(criteria)) {
-			throw new Error("Expected array for search criteria");
+			throw new IMAPError("Expected array for search criteria");
 		} else if (!this.serverSupports("SORT")) {
-			throw new Error("Sort is not supported on the server");
+			throw new IMAPError("Sort is not supported on the server");
 		}
 
 		sorts = sorts.map((c) => {
 			if (typeof c !== "string") {
-				throw new Error(
+				throw new IMAPError(
 					"Unexpected sort criteria data type. " +
 						"Expected string. Got: " +
 						typeof criteria,
@@ -1353,7 +1415,7 @@ export default class Connection extends EventEmitter {
 				case "TO":
 					break;
 				default:
-					throw new Error("Unexpected sort criteria: " + c);
+					throw new IMAPError("Unexpected sort criteria: " + c);
 			}
 
 			return modifier + c;
@@ -1380,9 +1442,9 @@ export default class Connection extends EventEmitter {
 
 	private _esearch(which, criteria, options, cb) {
 		if (this.box === undefined) {
-			throw new Error("No mailbox is currently selected");
+			throw new IMAPError("No mailbox is currently selected");
 		} else if (!Array.isArray(criteria)) {
-			throw new Error("Expected array for search options");
+			throw new IMAPError("Expected array for search options");
 		}
 
 		const info = { hasUTF8: false /*output*/ };
@@ -1420,7 +1482,9 @@ export default class Connection extends EventEmitter {
 		algorithm = algorithm.toUpperCase();
 
 		if (!this.serverSupports("THREAD=" + algorithm)) {
-			throw new Error("Server does not support that threading algorithm");
+			throw new IMAPError(
+				"Server does not support that threading algorithm",
+			);
 		}
 
 		const info = { hasUTF8: false /*output*/ };
@@ -1455,7 +1519,7 @@ export default class Connection extends EventEmitter {
 		} else if (type === "namespace") {
 			this.namespaces = info.text;
 		} else if (type === "id") {
-			this.curReq.cbargs.push(info.text);
+			this.curReq?.cbargs.push(info.text);
 		} else if (type === "capability") {
 			this.caps = info.text.map((v) => {
 				return v.toUpperCase();
@@ -1494,8 +1558,12 @@ export default class Connection extends EventEmitter {
 			}
 		} else if (type === "bad" || type === "no") {
 			if (this.state === "connected" && !this.curReq) {
-				clearTimeout(this.tmrConn);
-				clearTimeout(this.tmrAuth);
+				if (typeof this.tmrConn !== "undefined") {
+					clearTimeout(this.tmrConn);
+				}
+				if (typeof this.tmrAuth !== "undefined") {
+					clearTimeout(this.tmrAuth);
+				}
 				const err = new IMAPError(
 					"Received negative welcome: " + info.text,
 				);
@@ -1776,7 +1844,7 @@ export default class Connection extends EventEmitter {
 			} else {
 				errtext = req.oauthError;
 			}
-			err = new Error(errtext);
+			err = new IMAPError(errtext);
 			err.type = info.type;
 			err.textCode = info.textCode;
 			err.source = "protocol";
@@ -1836,7 +1904,7 @@ export default class Connection extends EventEmitter {
 		this.processQueue();
 	}
 
-	private doKeepaliveTimer(immediate) {
+	private doKeepaliveTimer(immediate = false) {
 		if (!this.config.keepalive) {
 			return;
 		}
@@ -1945,7 +2013,9 @@ export default class Connection extends EventEmitter {
 				}
 
 				if (this.serverSupports("LOGINDISABLED")) {
-					err = new Error("Logging in is disabled on this server");
+					err = new IMAPError(
+						"Logging in is disabled on this server",
+					);
 					err.source = "authentication";
 					return reentry(err);
 				}
@@ -1978,7 +2048,7 @@ export default class Connection extends EventEmitter {
 						checkCaps,
 					);
 				} else {
-					err = new Error(
+					err = new IMAPError(
 						"No supported authentication method(s) available. " +
 							"Unable to login.",
 					);
@@ -2087,7 +2157,7 @@ export default class Connection extends EventEmitter {
 			promote = false;
 		}
 
-		const info = {
+		const info: ICommand = {
 			cb,
 			cbargs: [],
 			fullcmd,
@@ -2150,7 +2220,7 @@ function validateUIDList(
 		}
 		intval = parseInt("" + uid, 10);
 		if (isNaN(intval)) {
-			const err = new Error(
+			const err = new IMAPError(
 				'UID/seqno must be an integer, "*", or a range: ' + uid,
 			);
 			if (noThrow) {
@@ -2159,7 +2229,7 @@ function validateUIDList(
 				throw err;
 			}
 		} else if (intval <= 0) {
-			const err = new Error("UID/seqno must be greater than zero");
+			const err = new IMAPError("UID/seqno must be greater than zero");
 			if (noThrow) {
 				return err;
 			} else {
@@ -2215,7 +2285,7 @@ function buildSearchQuery(
 				criteria = criteria[0].toUpperCase();
 			}
 		} else {
-			throw new Error(
+			throw new IMAPError(
 				"Unexpected search option data type. " +
 					"Expected string or array. Got: " +
 					typeof criteria,
@@ -2223,7 +2293,7 @@ function buildSearchQuery(
 		}
 		if (criteria === "OR") {
 			if (args.length !== 2) {
-				throw new Error("OR must have exactly two arguments");
+				throw new IMAPError("OR must have exactly two arguments");
 			}
 			if (isOrChild) {
 				searchargs += "OR (";
@@ -2265,7 +2335,7 @@ function buildSearchQuery(
 				case "TEXT":
 				case "TO":
 					if (!args || args.length !== 1) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
@@ -2283,7 +2353,7 @@ function buildSearchQuery(
 				case "SENTSINCE":
 				case "SINCE":
 					if (!args || args.length !== 1) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
@@ -2292,7 +2362,7 @@ function buildSearchQuery(
 							(args[0] = new Date(args[0])).toString() ===
 							"Invalid Date"
 						) {
-							throw new Error(
+							throw new IMAPError(
 								"Search option argument must be a Date object" +
 									" or a parseable date string",
 							);
@@ -2311,7 +2381,7 @@ function buildSearchQuery(
 				case "KEYWORD":
 				case "UNKEYWORD":
 					if (!args || args.length !== 1) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
@@ -2321,14 +2391,14 @@ function buildSearchQuery(
 				case "LARGER":
 				case "SMALLER":
 					if (!args || args.length !== 1) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
 					}
 					const num = parseInt(args[0], 10);
 					if (isNaN(num)) {
-						throw new Error(
+						throw new IMAPError(
 							"Search option argument must be a number",
 						);
 					}
@@ -2336,7 +2406,7 @@ function buildSearchQuery(
 					break;
 				case "HEADER":
 					if (!args || args.length !== 2) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
@@ -2355,14 +2425,14 @@ function buildSearchQuery(
 					break;
 				case "UID":
 					if (!args) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
 					}
 					validateUIDList(args);
 					if (args.length === 0) {
-						throw new Error("Empty uid list");
+						throw new IMAPError("Empty uid list");
 					}
 					searchargs += modifier + criteria + " " + args.join(",");
 					break;
@@ -2370,31 +2440,31 @@ function buildSearchQuery(
 				case "X-GM-MSGID": // Gmail unique message ID
 				case "X-GM-THRID": // Gmail thread ID
 					if (extensions.indexOf("X-GM-EXT-1") === -1) {
-						throw new Error(
+						throw new IMAPError(
 							"IMAP extension not available for: " + criteria,
 						);
 					}
 					if (!args || args.length !== 1) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
 					} else {
 						val = "" + args[0];
 						if (!RE_INTEGER.test(args[0])) {
-							throw new Error("Invalid value");
+							throw new IMAPError("Invalid value");
 						}
 					}
 					searchargs += modifier + criteria + " " + val;
 					break;
 				case "X-GM-RAW": // Gmail search syntax
 					if (extensions.indexOf("X-GM-EXT-1") === -1) {
-						throw new Error(
+						throw new IMAPError(
 							"IMAP extension not available for: " + criteria,
 						);
 					}
 					if (!args || args.length !== 1) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
@@ -2407,12 +2477,12 @@ function buildSearchQuery(
 					break;
 				case "X-GM-LABELS": // Gmail labels
 					if (extensions.indexOf("X-GM-EXT-1") === -1) {
-						throw new Error(
+						throw new IMAPError(
 							"IMAP extension not available for: " + criteria,
 						);
 					}
 					if (!args || args.length !== 1) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
@@ -2421,12 +2491,12 @@ function buildSearchQuery(
 					break;
 				case "MODSEQ":
 					if (extensions.indexOf("CONDSTORE") === -1) {
-						throw new Error(
+						throw new IMAPError(
 							"IMAP extension not available for: " + criteria,
 						);
 					}
 					if (!args || args.length !== 1) {
-						throw new Error(
+						throw new IMAPError(
 							"Incorrect number of arguments for search option: " +
 								criteria,
 						);
@@ -2439,11 +2509,11 @@ function buildSearchQuery(
 					const seqnos = args ? [criteria].concat(args) : [criteria];
 					if (!validateUIDList(seqnos, true)) {
 						if (seqnos.length === 0) {
-							throw new Error("Empty sequence number list");
+							throw new IMAPError("Empty sequence number list");
 						}
 						searchargs += modifier + seqnos.join(",");
 					} else {
-						throw new Error(
+						throw new IMAPError(
 							"Unexpected search option: " + criteria,
 						);
 					}

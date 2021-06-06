@@ -1,7 +1,7 @@
 import { imap } from "utf7";
 
 import { RE_ENCWORD, RE_LWS_ONLY, RE_QENC } from "./matchers";
-import { ISequence, IState } from "./types";
+import { IReplaces, ISequence, IState } from "./types";
 
 export const utf7 = imap;
 
@@ -11,8 +11,8 @@ export function decodeBytes(
 	offset: number,
 	mlen: number,
 	pendoffset: number,
-	state,
-	nextBuf,
+	state: IState,
+	nextBuf: Buffer,
 ) {
 	if (encodingExists(encoding)) {
 		if (state.buffer !== undefined) {
@@ -107,7 +107,8 @@ export function decodeBytes(
 			state.encoding = encoding;
 			state.buffer = buf;
 			if (!state.curReplace) {
-				state.replaces.push((state.curReplace = []));
+				state.curReplace = [];
+				state.replaces.push(state.curReplace);
 			}
 			state.curReplace.push({
 				fromOffset: offset,
@@ -145,7 +146,7 @@ export function decodeWords(str: string, state?: IState) {
 	state.replaces = [];
 
 	let bytes: Buffer;
-	let m: ISequence;
+	let regexMatch: RegExpExecArray;
 	let next: ISequence;
 	let i: number;
 	let j: number;
@@ -153,21 +154,24 @@ export function decodeWords(str: string, state?: IState) {
 	let lenj: number;
 	let seq: ISequence;
 	const replaces: ISequence[] = [];
+	let replaceMatch: ISequence;
 	let lastReplace: any = {};
 
 	// join consecutive q-encoded words that have the same charset first
-	while ((m = RE_ENCWORD.exec(str))) {
+	while ((regexMatch = RE_ENCWORD.exec(str))) {
 		seq = {
 			buf: undefined,
-			charset: m[1].toLowerCase(),
-			chunk: m[3],
+			charset: regexMatch[1].toLowerCase(),
+			chunk: regexMatch[3],
 			consecutive:
 				pendoffset > -1
-					? RE_LWS_ONLY.test(str.substring(pendoffset, m.index))
+					? RE_LWS_ONLY.test(
+							str.substring(pendoffset, regexMatch.index),
+					  )
 					: false,
-			encoding: m[2].toLowerCase(),
-			index: m.index,
-			length: m[0].length,
+			encoding: regexMatch[2].toLowerCase(),
+			index: regexMatch.index,
+			length: regexMatch[0].length,
 			pendoffset,
 		};
 		lastReplace = replaces.length && replaces[replaces.length - 1];
@@ -183,29 +187,30 @@ export function decodeWords(str: string, state?: IState) {
 			replaces.push(seq);
 			lastReplace = seq;
 		}
-		pendoffset = m.index + m[0].length;
+		pendoffset = regexMatch.index + regexMatch[0].length;
 	}
 
 	// generate replacement substrings and their positions
 	for (i = 0, leni = replaces.length; i < leni; ++i) {
-		m = replaces[i];
-		state.consecutive = m.consecutive;
-		if (m.encoding === "q") {
+		replaceMatch = replaces[i];
+		state.consecutive = replaceMatch.consecutive;
+		if (replaceMatch.encoding === "q") {
 			// q-encoding, similar to quoted-printable
 			bytes = Buffer.from(
-				m.chunk.replace(RE_QENC, qEncReplacer),
+				replaceMatch.chunk.replace(RE_QENC, qEncReplacer),
 				"binary",
 			);
 			next = undefined;
 		} else {
 			// base64
-			bytes = m.buf || Buffer.from(m.chunk, "base64");
+			bytes =
+				replaceMatch.buf || Buffer.from(replaceMatch.chunk, "base64");
 			next = replaces[i + 1];
 			if (
 				next &&
 				next.consecutive &&
-				next.encoding === m.encoding &&
-				next.charset === m.charset
+				next.encoding === replaceMatch.encoding &&
+				next.charset === replaceMatch.charset
 			) {
 				// we use the next base64 chunk, if any, to determine the integrity
 				// of the current chunk
@@ -214,10 +219,11 @@ export function decodeWords(str: string, state?: IState) {
 		}
 		decodeBytes(
 			bytes,
-			m.charset,
-			m.index,
-			m.length,
-			m.pendoffset,
+			replaceMatch.charset,
+			replaceMatch.index,
+			replaceMatch.length,
+			// Because we set this above, we know we have a pendoffset
+			replaceMatch.pendoffset as number,
 			state,
 			next && next.buf,
 		);
@@ -225,19 +231,19 @@ export function decodeWords(str: string, state?: IState) {
 
 	// perform the actual replacements
 	for (i = state.replaces.length - 1; i >= 0; --i) {
-		seq = state.replaces[i];
-		if (Array.isArray(seq)) {
-			for (j = 0, lenj = seq.length; j < lenj; ++j) {
+		let rpl = state.replaces[i];
+		if (Array.isArray(rpl)) {
+			for (j = 0, lenj = rpl.length; j < lenj; ++j) {
 				str =
-					str.substring(0, seq[j].fromOffset) +
-					seq[j].val +
+					str.substring(0, rpl[j].fromOffset) +
+					rpl[j].val +
 					str.substring(seq[j].toOffset);
 			}
 		} else {
 			str =
-				str.substring(0, seq.fromOffset) +
-				seq.val +
-				str.substring(seq.toOffset);
+				str.substring(0, rpl.fromOffset) +
+				rpl.val +
+				str.substring(rpl.toOffset);
 		}
 	}
 

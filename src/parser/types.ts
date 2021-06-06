@@ -1,18 +1,23 @@
+export interface IReplaces {
+	fromOffset: number;
+	toOffset: number;
+	val: string;
+}
 export interface ISequence {
-	buf: void | Buffer;
+	buf: undefined | Buffer;
 	consecutive: boolean;
 	charset: string;
 	chunk: string;
-	index: number;
 	encoding: string;
+	index: number;
 	length: number;
-	pendoffset: void | number;
+	pendoffset: undefined | number;
 }
 export interface IState {
-	buffer: void | Buffer;
+	buffer: undefined | Buffer;
 	consecutive: boolean;
-	curReplace?: void | ISequence;
-	encoding: void | string;
-	remainder: void | undefined;
-	replaces: any[];
+	curReplace: undefined | IReplaces[];
+	encoding: undefined | string;
+	remainder: undefined | undefined;
+	replaces: (IReplaces | IReplaces[])[];
 }
