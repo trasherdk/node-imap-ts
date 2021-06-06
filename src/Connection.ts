@@ -5,7 +5,7 @@ import * as tls from "tls";
 import { imap as utf7 } from "utf7";
 import { inspect, isDate } from "util";
 
-import { parseExpr, parseHeader, Parser } from "./Parser";
+import Parser, { parseExpr, parseHeader } from "./parser";
 
 const MAX_INT = 9007199254740992;
 const KEEPALIVE_INTERVAL = 10000;
