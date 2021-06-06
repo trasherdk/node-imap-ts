@@ -1,5 +1,4 @@
 import { EventEmitter } from "events";
-import { Readable as ReadableStream } from "stream";
 import { inspect } from "util";
 
 import { CH_LF, EMPTY_READCB, LITPLACEHOLDER } from "./constants";
@@ -26,6 +25,7 @@ import {
 	parseStatus,
 	parseTextCode,
 } from "./sections";
+import ParserStream from "./stream";
 
 function indexOfCh(buffer, len, i, ch) {
 	let r = -1;
@@ -40,7 +40,7 @@ function indexOfCh(buffer, len, i, ch) {
 
 export default class Parser extends EventEmitter {
 	private debug: (msg: string) => void;
-	private body: void | NodeJS.ReadableStream;
+	private body: void | ParserStream;
 	private buffer: string;
 	private ignoreReadable: boolean;
 	private literallen: number;
@@ -109,7 +109,7 @@ export default class Parser extends EventEmitter {
 					i = litlen;
 					this.literallen = 0;
 					this.body = undefined;
-					body._read = EMPTY_READCB;
+					body.readCallback = undefined;
 					if (datalen > litlen) {
 						body.push(data.slice(0, litlen));
 					} else {
@@ -120,7 +120,7 @@ export default class Parser extends EventEmitter {
 					this.literallen -= datalen;
 					const r = body.push(data);
 					if (!r) {
-						body._read = this.cbReadable;
+						body.readCallback = this.cbReadable;
 						return;
 					}
 					i = datalen;
@@ -209,9 +209,7 @@ export default class Parser extends EventEmitter {
 			const which = m[1];
 			const size = parseInt(m[2], 10);
 			this.literallen = size;
-			this.body = new ReadableStream();
-			this.body._readableState.sync = false;
-			this.body._read = EMPTY_READCB;
+			this.body = new ParserStream();
 			m = RE_SEQNO.exec(this.buffer);
 			this.buffer = this.buffer.replace(RE_BODYLITERAL, "");
 			this.emit("body", this.body, {
