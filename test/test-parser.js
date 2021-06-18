@@ -7,6 +7,7 @@ var assert = require('assert'),
 var CR = '\r', LF = '\n', CRLF = CR + LF;
 
 [
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['A1 OK LOGIN completed', CRLF],
     expected: [ { type: 'ok',
                   tagnum: 1,
@@ -24,6 +25,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
     expected: [ 'IDLE OK Idle completed (0.002 + 1.783 + 1.783 secs).' ],
     what: 'Unknown line with + char'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['+ idling', CRLF],
     expected: [ { textCode: undefined,
                   text: 'idling'
@@ -31,6 +33,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Continuation'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['+ [ALERT] idling', CRLF],
     expected: [ { textCode: 'ALERT',
                   text: 'idling'
@@ -45,6 +48,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Continuation (broken -- RFC violation) sent by AOL IMAP'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* NAMESPACE ',
              '(("" "/")) ',
              '(("~" "/")) ',
@@ -89,6 +93,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Multiple namespaces'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* NAMESPACE ',
              '(("" "/" "X-PARAM" ("FLAG1" "FLAG2"))) ',
              'NIL ',
@@ -113,6 +118,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Multiple namespaces'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)', CRLF],
     expected: [ { type: 'flags',
                   num: undefined,
@@ -128,6 +134,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Flags'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* SEARCH 2 3 6', CRLF],
     expected: [ { type: 'search',
                   num: undefined,
@@ -137,6 +144,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Search'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* XLIST (\\Noselect) "/" ~/Mail/foo', CRLF],
     expected: [ { type: 'xlist',
                   num: undefined,
@@ -150,6 +158,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'XList'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* LIST (\\Noselect) "/" ~/Mail/foo', CRLF],
     expected: [ { type: 'list',
                   num: undefined,
@@ -163,6 +172,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'List'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* STATUS blurdybloop (MESSAGES 231 UIDNEXT 44292)', CRLF],
     expected: [ { type: 'status',
                   num: undefined,
@@ -175,6 +185,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Status'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* OK [UNSEEN 17] Message 17 is the first unseen message', CRLF],
     expected: [ { type: 'ok',
                   num: undefined,
@@ -187,6 +198,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Untagged OK (with text code, with text)'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* OK [PERMANENTFLAGS (\\Deleted \\Seen \\*)] Limited', CRLF],
     expected: [ { type: 'ok',
                   num: undefined,
@@ -211,6 +223,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Untagged OK (no text code, with text) (RFC violation)'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* OK IMAP4rev1 Service Ready', CRLF],
     expected: [ { type: 'ok',
                   num: undefined,
@@ -229,6 +242,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Untagged OK (no text code, no text) (RFC violation)'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* 18 EXISTS', CRLF],
     expected: [ { type: 'exists',
                   num: 18,
@@ -238,6 +252,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'Untagged EXISTS'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['* 2 RECENT', CRLF],
     expected: [ { type: 'recent',
                   num: 2,
