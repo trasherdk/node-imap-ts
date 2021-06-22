@@ -1,3 +1,5 @@
+import { ILexerToken } from "./lexer/types";
+
 export class IMAPError extends Error {
 	public source?: string;
 	public readonly wrappedError?: Error;
@@ -22,6 +24,27 @@ export class TokenizationError extends Error {
 
 	toString(): string {
 		return [this.message, `\tInput: ${this.input}`].join("\n");
+	}
+}
+
+export class ParsingError extends Error {
+	constructor(
+		message: string,
+		public readonly input?: string | ILexerToken<unknown>[],
+	) {
+		super(message);
+	}
+
+	toString(): string {
+		let inputStr: string;
+		if (Array.isArray(this.input)) {
+			inputStr = "";
+			this.input.forEach((i) => (inputStr += i.value));
+		} else {
+			inputStr = this.input;
+		}
+
+		return [this.message, inputStr].join("\n");
 	}
 }
 

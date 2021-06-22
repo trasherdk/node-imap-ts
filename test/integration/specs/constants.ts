@@ -4,6 +4,8 @@ export const CR: "\r" = "\r";
 export const LF: "\n" = "\n";
 export const CRLF: "\r\n" = (CR + LF) as any;
 
+export const LEXER_TOKENS_INSERT_HERE = "__LEXER_TOKENS_INSERT_HERE___";
+
 // Init some common tokens for easy reuse; Reusing won't affect test checks
 export const tokenNil = new tokens.NilToken("NIL");
 export const tokenSP = new tokens.SPToken(" ");
