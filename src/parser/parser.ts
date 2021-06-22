@@ -1,6 +1,8 @@
 import { EventEmitter } from "events";
 import { inspect } from "util";
 
+import Lexer from "../lexer/lexer";
+import { ILexerToken } from "../lexer/types";
 import { CH_LF, EMPTY_READCB, LITPLACEHOLDER } from "./constants";
 import {
 	RE_BODYLITERAL,
@@ -26,6 +28,7 @@ import {
 	parseTextCode,
 	TextCode,
 } from "./sections";
+import ContinueResponse from "./structure/continue";
 import ParserStream from "./stream";
 
 function indexOfCh(buffer, len, i, ch) {
@@ -44,12 +47,13 @@ export default class Parser extends EventEmitter {
 	private body: void | ParserStream;
 	private buffer: string;
 	private ignoreReadable: boolean;
+	private lexer: Lexer;
 	private literallen: number;
 	private literals: string[];
 	private stream: NodeJS.ReadableStream;
 	private cbReadable: () => void;
 
-	constructor(stream: NodeJS.ReadableStream, debug: (msg: string) => void) {
+	constructor(stream: NodeJS.ReadableStream, debug?: (msg: string) => void) {
 		super();
 
 		this.stream = undefined;
@@ -61,6 +65,7 @@ export default class Parser extends EventEmitter {
 		// Fallback to no-op
 		// tslint:disable-next-line:no-empty
 		this.debug = debug || (() => {});
+		this.lexer = new Lexer();
 
 		this.cbReadable = () => {
 			if (this.ignoreReadable) {
@@ -151,6 +156,8 @@ export default class Parser extends EventEmitter {
 
 				this.debug("<= " + inspect(this.buffer));
 
+				const tokens = this.lexer.tokenize(this.buffer);
+
 				if (RE_PRECEDING.test(this.buffer)) {
 					const firstChar = this.buffer[0];
 					if (firstChar === "*") {
@@ -158,7 +165,7 @@ export default class Parser extends EventEmitter {
 					} else if (firstChar === "A") {
 						this.resTagged();
 					} else if (firstChar === "+") {
-						this.resContinue();
+						this.resContinue(tokens);
 					}
 
 					if (this.literallen > 0 && i < datalen) {
@@ -315,26 +322,8 @@ export default class Parser extends EventEmitter {
 		}
 	}
 
-	private resContinue() {
-		const m: RegExpExecArray = RE_CONTINUE.exec(this.buffer);
-		let textCode: TextCode;
-		let text: string;
-
+	private resContinue(tokens: ILexerToken<unknown>[]) {
 		this.buffer = "";
-
-		if (!m) {
-			return;
-		}
-
-		text = m[2];
-
-		if (m[1] !== undefined) {
-			textCode = parseTextCode(m[1], this.literals);
-		}
-
-		this.emit("continue", {
-			text,
-			textCode,
-		});
+		this.emit("continue", new ContinueResponse(tokens));
 	}
 }

@@ -6,6 +6,7 @@ export type TestSpec = {
 	results:
 		| {
 				lexer: ILexerToken<unknown>[];
+				parser?: Record<string, any>;
 		  }
 		| {
 				error: Error;

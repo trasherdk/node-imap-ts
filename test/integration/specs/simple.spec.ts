@@ -8,6 +8,7 @@
 // Many of these examples are pulled directly from the IMAP specification.
 import {
 	CRLF,
+	LEXER_TOKENS_INSERT_HERE,
 	// Helper FNs
 	atom,
 	qString,
@@ -49,6 +50,11 @@ const simpleSet: TestSpec[] = [
 		input: ["+ idling", CRLF].join(""),
 		results: {
 			lexer: [tokenPlus, tokenSP, atom("idling"), tokenCRLF],
+			parser: {
+				text: "idling",
+				textCode: null,
+				tokens: LEXER_TOKENS_INSERT_HERE,
+			},
 		},
 	},
 	{
@@ -65,6 +71,17 @@ const simpleSet: TestSpec[] = [
 				atom("idling"),
 				tokenCRLF,
 			],
+			parser: {
+				text: "idling",
+				textCode: {
+					kind: "ALERT",
+					innerTokens: [],
+					startingIndex: 2,
+					endingIndex: 4,
+					tokens: [tokenOpenBrack, atom("ALERT"), tokenCloseBrack],
+				},
+				tokens: LEXER_TOKENS_INSERT_HERE,
+			},
 		},
 	},
 	{
