@@ -1,10 +1,10 @@
 # Lovely Inbox IMAP
 
-![build status](https://github.com/LoveAndCoding/ts-imap/actions/workflows/build.yml/badge.svg)
+![build status](https://github.com/LoveAndCoding/imap/actions/workflows/build.yml/badge.svg)
 
 ## Description
 
-ts-imap is an IMAP client module for [node.js](http://nodejs.org/). This project is based on the [node-imap](https://github.com/mscdex/node-imap) project, which has been rewritten in Typescript and modernization improvements added.
+@lovely-inbox/imap is an IMAP client module for [node.js](http://nodejs.org/). This project is based on the [node-imap](https://github.com/mscdex/node-imap) project, which has been rewritten in Typescript and modernization improvements added.
 
 This module does not perform any magic such as auto-decoding of messages/attachments or parsing of email addresses (all mail header values are left as-is).
 
