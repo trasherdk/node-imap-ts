@@ -1,6 +1,5 @@
 import Parser from "../../../src/parser";
 import ParserStream from "../../../src/parser/stream";
-import { LEXER_TOKENS_INSERT_HERE } from "../specs/constants";
 import SimpleSpecs from "../specs/simple.spec";
 
 jest.mock("../../../src/parser/stream");
@@ -24,14 +23,6 @@ describe("Parser Tests", () => {
 
 				expect(shouldThrow).toThrowError(results.error);
 			} else {
-				Object.keys(results.parser).forEach((key) => {
-					if (results.parser[key] === LEXER_TOKENS_INSERT_HERE) {
-						// Replace the lexer tokens, but chop off the CRLF
-						// as we don't include that in parsing
-						results.parser[key] = results.lexer.slice(0, -1);
-					}
-				});
-
 				const end = (output) => {
 					try {
 						expect(output).toEqual(results.parser);

@@ -12,7 +12,7 @@ export default class ContinueResponse {
 	// base64          = *(4base64-char) [base64-terminal]
 	// base64-char     = ALPHA / DIGIT / "+" / "/" ; Case-sensitive
 	// base64-terminal = (2base64-char "==") / (3base64-char "=")
-	constructor(public readonly tokens: ILexerToken<unknown>[]) {
+	constructor(tokens: ILexerToken<unknown>[]) {
 		if (
 			tokens[0].type !== TokenTypes.operator ||
 			tokens[0].getTrueValue() !== "+"
