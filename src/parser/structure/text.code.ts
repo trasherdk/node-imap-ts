@@ -2,12 +2,13 @@ import { ParsingError } from "../../errors";
 import { NumberToken, SPToken } from "../../lexer/tokens";
 import { ILexerToken, TokenTypes } from "../../lexer/types";
 import { getOriginalInput, splitSpaceSeparatedList } from "../utility";
-import { ICapability, createCapabilityFromString } from "./capability";
+import { CapabilityList } from "./capability";
 import Flag from "./flag";
 
 export default class TextCode {
-	public readonly innerTokens: ILexerToken<unknown>[];
+	public readonly contents: ILexerToken<unknown>[];
 	public readonly kind?: string;
+	protected capabilityList?: CapabilityList;
 
 	protected static isOpenToken(token: ILexerToken<unknown>) {
 		return (
@@ -59,12 +60,12 @@ export default class TextCode {
 		public readonly endingIndex: number,
 	) {
 		this.kind = tokens[1]?.value; // First token is "["
-		this.innerTokens = tokens.slice(1, tokens.length - 2);
+		this.contents = tokens.slice(1, tokens.length - 2);
 
-		const firstToken = this.innerTokens[0];
+		const firstToken = this.contents[0];
 		if (firstToken && firstToken instanceof SPToken) {
 			// We can skip the first space token
-			this.innerTokens.shift();
+			this.contents.shift();
 		}
 	}
 
@@ -74,24 +75,20 @@ export default class TextCode {
 		}
 
 		// spec: "BADCHARSET" [SP "(" astring *(SP astring) ")" ]
-		const tokenBlocks = splitSpaceSeparatedList(this.innerTokens);
+		const tokenBlocks = splitSpaceSeparatedList(this.contents);
 		return tokenBlocks.map((block) => getOriginalInput(block));
 	}
 
-	public get capabilities(): ICapability[] {
+	public get capabilities(): CapabilityList {
 		if (this.kind !== "CAPABILITIES") {
 			return null;
 		}
 
-		const tokenBlocks = splitSpaceSeparatedList(
-			this.innerTokens,
-			null, // This list does not have a start or end character
-			null,
-		);
-		// For each set of tokens, get their raw values and make capabilities
-		return tokenBlocks.map((block) =>
-			createCapabilityFromString(getOriginalInput(block)),
-		);
+		if (!this.capabilityList) {
+			this.capabilityList = new CapabilityList(this.contents);
+		}
+
+		return this.capabilityList;
 	}
 
 	public get flags(): Flag[] {
@@ -100,7 +97,7 @@ export default class TextCode {
 		}
 
 		// spec: "PERMANENTFLAGS" SP "(" [flag-perm *(SP flag-perm)] ")"
-		const tokenBlocks = splitSpaceSeparatedList(this.innerTokens);
+		const tokenBlocks = splitSpaceSeparatedList(this.contents);
 		return tokenBlocks.map((block) => new Flag(getOriginalInput(block)));
 	}
 
@@ -122,11 +119,11 @@ export default class TextCode {
 		}
 
 		// spec: "UIDNEXT" SP nz-number
-		const numToken = this.innerTokens[0];
+		const numToken = this.contents[0];
 		if (!numToken || !(numToken instanceof NumberToken)) {
 			throw new ParsingError(
 				`Recieved invalid format for ${kindToValidate}`,
-				this.innerTokens,
+				this.contents,
 			);
 		}
 

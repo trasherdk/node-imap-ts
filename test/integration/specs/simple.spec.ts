@@ -51,8 +51,11 @@ const simpleSet: TestSpec[] = [
 		results: {
 			lexer: [tokenPlus, tokenSP, atom("idling"), tokenCRLF],
 			parser: {
-				text: "idling",
-				textCode: null,
+				text: {
+					code: null,
+					content: "idling",
+					tokens: [atom("idling")],
+				},
 				tokens: LEXER_TOKENS_INSERT_HERE,
 			},
 		},
@@ -72,13 +75,26 @@ const simpleSet: TestSpec[] = [
 				tokenCRLF,
 			],
 			parser: {
-				text: "idling",
-				textCode: {
-					kind: "ALERT",
-					innerTokens: [],
-					startingIndex: 2,
-					endingIndex: 4,
-					tokens: [tokenOpenBrack, atom("ALERT"), tokenCloseBrack],
+				text: {
+					code: {
+						kind: "ALERT",
+						contents: [],
+						startingIndex: 0,
+						endingIndex: 2,
+						tokens: [
+							tokenOpenBrack,
+							atom("ALERT"),
+							tokenCloseBrack,
+						],
+					},
+					content: "idling",
+					tokens: [
+						tokenOpenBrack,
+						atom("ALERT"),
+						tokenCloseBrack,
+						tokenSP,
+						atom("idling"),
+					],
 				},
 				tokens: LEXER_TOKENS_INSERT_HERE,
 			},

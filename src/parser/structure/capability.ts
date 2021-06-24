@@ -12,6 +12,8 @@
 //                   ; registered with IANA as standard or
 //                   ; standards-track
 import { ParsingError } from "../../errors";
+import { ILexerToken } from "../../lexer/types";
+import { getOriginalInput, splitSpaceSeparatedList } from "../utility";
 
 export interface ICapability {
 	readonly kind: string;
@@ -173,9 +175,17 @@ export class ExtensionCapability implements ICapability {
 	}
 }
 
-// To be spec compliant we don't really HAVE to implement this. But to
-// be an actual library that exists in the real world, we should. So
-// we have a type for capabilities we get that we just don't understand
+// From the spec:
+//   Client implementations SHOULD NOT require any capability name
+//   other than "IMAP4rev1", and MUST ignore any unknown capability
+//   names.
+//
+// To be spec compliant we shouldn't really implement this. But to be
+// an actual library that exists in the real world, we kind need to.
+// So we have a type for capabilities we get that we don't understand.
+//
+// This will likely be mostly for debugging or understanding servers
+// that are not IMAP4rev1 compliant. So we are kind-of ignoring them.
 export class UnknownCapability implements ICapability {
 	public readonly kind: string;
 	public readonly value: string;
@@ -188,14 +198,58 @@ export class UnknownCapability implements ICapability {
 	}
 }
 
-export function createCapabilityFromString(capabilityStr: string): ICapability {
-	if (capabilityStr.includes("=")) {
-		return new KindValueCapability(capabilityStr);
-	} else if (capabilityStr.startsWith("X")) {
-		return new ExtensionCapability(capabilityStr);
-	} else if (isStandardCapability(capabilityStr)) {
-		return new StandardCapability(capabilityStr);
-	} else {
-		return new UnknownCapability(capabilityStr);
+export class CapabilityList {
+	protected capabilityMap: Map<string, ICapability>;
+
+	constructor(tokens: ILexerToken<unknown>[]) {
+		this.capabilityMap = new Map();
+
+		const blocks = splitSpaceSeparatedList(tokens);
+		blocks.map((block) => {
+			this.add(getOriginalInput(block));
+		});
 	}
+
+	public get capabilities(): ICapability[] {
+		return Array.from(this.capabilityMap.values());
+	}
+
+	public get supportedAuthSchemes(): string[] {
+		const authCaps: KindValueCapability[] = this.capabilities.filter(
+			(cap): cap is KindValueCapability =>
+				cap instanceof KindValueCapability && cap.kind === "AUTH",
+		);
+		return authCaps.map((cap) => cap.value);
+	}
+
+	protected add(capabilityStr: string) {
+		// Normalize the string for storage purposes
+		const normalCapStr = capabilityStr.toUpperCase();
+
+		if (!this.capabilityMap.has(normalCapStr)) {
+			let cap;
+			if (capabilityStr.includes("=")) {
+				cap = new KindValueCapability(capabilityStr);
+			} else if (capabilityStr.startsWith("X")) {
+				cap = new ExtensionCapability(capabilityStr);
+			} else if (isStandardCapability(capabilityStr)) {
+				cap = new StandardCapability(capabilityStr);
+			} else {
+				cap = new UnknownCapability(capabilityStr);
+			}
+			this.capabilityMap.set(normalCapStr, cap);
+		}
+
+		return this.capabilityMap.get(normalCapStr);
+	}
+
+	public has(capability: string) {
+		return this.capabilityMap.has(capability.toUpperCase());
+	}
+}
+
+export default class CapabilityResponse {
+	public readonly capabilities: CapabilityList;
+
+	constructor(public readonly tokens: ILexerToken<unknown>[]) {}
 }
