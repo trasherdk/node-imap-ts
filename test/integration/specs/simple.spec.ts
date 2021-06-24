@@ -42,6 +42,37 @@ const simpleSet: TestSpec[] = [
 				atom("completed"),
 				tokenCRLF,
 			],
+			parser: {
+				status: {
+					status: "OK",
+					text: {
+						code: null,
+						content: "LOGIN completed",
+					},
+				},
+				tag: {
+					id: 1,
+				},
+			},
+		},
+	},
+	{
+		name: "Tagged OK (no text code, no text)",
+		input: ["A1 OK", CRLF].join(""), // some servers like ppops.net sends such response
+		results: {
+			lexer: [atom("A1"), tokenSP, atom("OK"), tokenCRLF],
+			parser: {
+				status: {
+					status: "OK",
+					text: {
+						code: null,
+						content: "",
+					},
+				},
+				tag: {
+					id: 1,
+				},
+			},
 		},
 	},
 	{

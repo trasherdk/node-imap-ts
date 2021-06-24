@@ -484,6 +484,7 @@ var CR = '\r', LF = '\n', CRLF = CR + LF;
               ],
     what: 'QuotaRoot'
   },
+  // Duplicated to test/specs/simple.spec.ts
   { source: ['A1 OK', CRLF], // some servers like ppops.net sends such response
     expected: [ { type: 'ok',
                   tagnum: 1,
