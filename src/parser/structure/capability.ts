@@ -251,5 +251,5 @@ export class CapabilityList {
 export default class CapabilityResponse {
 	public readonly capabilities: CapabilityList;
 
-	constructor(public readonly tokens: ILexerToken<unknown>[]) {}
+	constructor(tokens: ILexerToken<unknown>[]) {}
 }

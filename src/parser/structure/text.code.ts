@@ -55,7 +55,7 @@ export default class TextCode {
 	}
 
 	constructor(
-		public readonly tokens: ILexerToken<unknown>[],
+		tokens: ILexerToken<unknown>[],
 		public readonly startingIndex: number,
 		public readonly endingIndex: number,
 	) {
