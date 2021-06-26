@@ -63,7 +63,7 @@ export function parseFetchEnvelope(list) {
 	};
 }
 
-function parseEnvelopeAddresses(list) {
+export function parseEnvelopeAddresses(list) {
 	let addresses = null;
 	if (Array.isArray(list)) {
 		addresses = [];
