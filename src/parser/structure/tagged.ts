@@ -1,4 +1,5 @@
 import { ParsingError } from "../../errors";
+import { ILexerToken } from "../../lexer/types";
 import StatusResponse from "./status";
 import Tag from "./tag";
 
@@ -8,7 +9,7 @@ export default class TaggedResponse {
 	public readonly status: StatusResponse;
 	public readonly tag: Tag;
 
-	constructor(tokens) {
+	constructor(tokens: ILexerToken<unknown>[]) {
 		this.tag = Tag.match(tokens);
 		if (!this.tag) {
 			throw new ParsingError(

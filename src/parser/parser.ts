@@ -3,10 +3,9 @@ import { inspect } from "util";
 
 import Lexer from "../lexer/lexer";
 import { ILexerToken } from "../lexer/types";
-import { CH_LF, EMPTY_READCB, LITPLACEHOLDER } from "./constants";
+import { CH_LF, LITPLACEHOLDER } from "./constants";
 import {
 	RE_BODYLITERAL,
-	RE_CONTINUE,
 	RE_LISTCONTENT,
 	RE_LITERAL,
 	RE_PRECEDING,
@@ -28,8 +27,9 @@ import {
 	parseTextCode,
 	TextCode,
 } from "./sections";
-import ContinueResponse from "./structure/continue";
 import ParserStream from "./stream";
+import ContinueResponse from "./structure/continue";
+import TaggedResponse from "./structure/tagged";
 
 function indexOfCh(buffer, len, i, ch) {
 	let r = -1;
@@ -95,14 +95,15 @@ export default class Parser extends EventEmitter {
 
 	private tryread(n?: number) {
 		if (this.stream.readable) {
-			const r = this.stream.read(n);
+			// We know this is a buffer because we don't provide an encoding
+			const r: Buffer = this.stream.read(n) as Buffer;
 			if (r) {
 				this.parse(r);
 			}
 		}
 	}
 
-	private parse(data: string | Buffer) {
+	private parse(data: Buffer) {
 		const datalen = data.length;
 		let i = 0;
 		let idxlf: number;
@@ -163,7 +164,7 @@ export default class Parser extends EventEmitter {
 					if (firstChar === "*") {
 						this.resUntagged();
 					} else if (firstChar === "A") {
-						this.resTagged();
+						this.resTagged(tokens);
 					} else if (firstChar === "+") {
 						this.resContinue(tokens);
 					}
@@ -191,22 +192,17 @@ export default class Parser extends EventEmitter {
 		}
 	}
 
-	private resTagged() {
+	private resTagged(tokens: ILexerToken<unknown>[]) {
 		let m: RegExpExecArray;
 		if ((m = RE_LITERAL.exec(this.buffer))) {
 			// non-BODY literal -- buffer it
 			this.buffer = this.buffer.replace(RE_LITERAL, LITPLACEHOLDER);
 			this.literallen = parseInt(m[1], 10);
-		} else if ((m = RE_TAGGED.exec(this.buffer))) {
+		} else if (RE_TAGGED.exec(this.buffer)) {
 			this.buffer = "";
 			this.literals = [];
 
-			this.emit("tagged", {
-				tagnum: parseInt(m[1], 10),
-				text: m[4],
-				textCode: m[3] ? parseTextCode(m[3], this.literals) : m[3],
-				type: m[2].toLowerCase(),
-			});
+			this.emit("tagged", new TaggedResponse(tokens));
 		} else {
 			this.buffer = "";
 		}

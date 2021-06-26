@@ -247,9 +247,3 @@ export class CapabilityList {
 		return this.capabilityMap.has(capability.toUpperCase());
 	}
 }
-
-export default class CapabilityResponse {
-	public readonly capabilities: CapabilityList;
-
-	constructor(tokens: ILexerToken<unknown>[]) {}
-}
