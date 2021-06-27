@@ -3,12 +3,13 @@ import { NumberToken, SPToken } from "../../lexer/tokens";
 import { ILexerToken, TokenTypes } from "../../lexer/types";
 import { getOriginalInput, splitSpaceSeparatedList } from "../utility";
 import { CapabilityList } from "./capability";
-import Flag from "./flag";
+import { FlagList } from "./flag";
 
 export default class TextCode {
 	public readonly contents: ILexerToken<unknown>[];
 	public readonly kind?: string;
 	protected capabilityList?: CapabilityList;
+	protected flagList?: FlagList;
 
 	protected static isOpenToken(token: ILexerToken<unknown>) {
 		return (
@@ -91,14 +92,16 @@ export default class TextCode {
 		return this.capabilityList;
 	}
 
-	public get flags(): Flag[] {
+	public get flags(): FlagList {
 		if (this.kind !== "PERMANENTFLAGS") {
 			return null;
 		}
 
-		// spec: "PERMANENTFLAGS" SP "(" [flag-perm *(SP flag-perm)] ")"
-		const tokenBlocks = splitSpaceSeparatedList(this.contents);
-		return tokenBlocks.map((block) => new Flag(getOriginalInput(block)));
+		if (!this.flagList) {
+			this.flagList = new FlagList(this.contents);
+		}
+
+		return this.flagList;
 	}
 
 	public get uidNext(): number {
