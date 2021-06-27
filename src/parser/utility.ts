@@ -1,6 +1,12 @@
 import { SPToken } from "../lexer/tokens";
 import { ILexerToken, TokenTypes } from "../lexer/types";
 
+export function* pairedArrayLoopGenerator<T>(arr: T[]) {
+	for (let i = 0; i < arr.length; i += 2) {
+		yield [arr[i], arr[i + 1]];
+	}
+}
+
 export function splitSpaceSeparatedList(
 	listTokens: ILexerToken<unknown>[],
 	startTokenValue = "(",
@@ -60,4 +66,49 @@ export function splitSpaceSeparatedList(
 
 export function getOriginalInput(tokens: ILexerToken<unknown>[]) {
 	return tokens.reduce((input, token) => input + token.value, "");
+}
+
+type IFormat = {
+	instance?: any;
+	sp?: boolean;
+	trueValue?: unknown;
+	type?: TokenTypes;
+	value?: string;
+};
+
+export function matchesFormat(
+	tokens: ILexerToken<unknown>[],
+	formats: IFormat[],
+): boolean {
+	for (let i = 0; i < formats.length; i++) {
+		const token = tokens[i];
+		if (!token) {
+			// If we don't have a token to match against, we
+			// can't possibly match any of the formatting
+			return false;
+		}
+
+		const format = formats[i];
+		if (format.instance && !(token instanceof format.instance)) {
+			return false;
+		}
+		if (format.sp && !(token instanceof SPToken)) {
+			return false;
+		}
+		if (
+			"trueValue" in format &&
+			token.getTrueValue() !== format.trueValue
+		) {
+			return false;
+		}
+		if ("type" in format && token.type !== format.type) {
+			return false;
+		}
+		if ("value" in format && token.value !== format.value) {
+			return false;
+		}
+	}
+
+	// If we made it to the end, we match
+	return true;
 }
